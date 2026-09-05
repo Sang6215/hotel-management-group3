@@ -1,4 +1,4 @@
-# Hợp đồng API Phase 1–2
+# Hợp đồng API Phase 1–3
 
 Tiền tố /api/v1. Cùng origin với giao diện. Dữ liệu JSON. Cookie phiên tên hotel.sid, HttpOnly, SameSite=Strict, thời hạn tối đa 8 giờ; Secure khi NODE_ENV=production. Không dùng token đăng nhập trong localStorage.
 
@@ -77,18 +77,38 @@ Mọi body ghi là strict: không nhận trường ngoài đặc tả. Giá và 
 
 Đặc tả chi tiết về thời gian, chụp dữ liệu, bảo trì và bộ kiểm thử tại [nghiệm thu tuần 2](07_WEEK2.md). Khả dụng trong pending là kết quả kiểm tra tại thời điểm lưu, chưa có thao tác giữ lịch; Phase 3 phải kiểm tra lại trong cơ chế đồng bộ riêng.
 
+## API bổ sung tuần 3 (đã hoạt động)
+
+Các POST dưới đây cần cookie + CSRF, requestId (UUID, phạm vi booking) và version. Body strict; giá, tổng tiền và số tiền hoàn tính tại máy chủ.
+
+| Đường dẫn | Method | Các trường thêm ngoài requestId/version | Quyền |
+|---|---|---|---|
+| /bookings/:id/confirmation-quote | GET | Không; trả quote: token, rooms, customer, total, minimumDeposit, depositPercent, nights | Cả hai |
+| /bookings/:id/confirm | POST | quoteToken, amount (cọc), method, reference tùy chọn | Cả hai; chỉ pending |
+| /bookings/:id/deposits | POST | amount, method, reference tùy chọn | Cả hai; chỉ confirmed |
+| /bookings/:id/cancel | POST | reason 3–500 ký tự | Cả hai; pending/confirmed |
+| /bookings/:id/refunds | POST | method, reference tùy chọn, reason | Admin; cancelled chờ hoàn |
+| /bookings/:id/check-in | POST | Không | Cả hai; confirmed, đúng ngày, mọi phòng available |
+| /bookings/:id/extend | POST | checkOut YYYY-MM-DD, reason | Cả hai; checked_in |
+| /bookings/:id/reschedule | POST | checkIn, checkOut YYYY-MM-DD, reason | Cả hai; confirmed |
+
+method là cash/transfer/card. Thành công trả HTTP 200 với item (phiếu hiện tại), receipt (requestId, action, at, version, amount của lần thực hiện gốc). Cùng mã/nội dung/tài khoản trả receipt cũ và item mới nhất, không thực hiện lại. Cùng mã khác nội dung hoặc người gửi trả 409. Hỏng kết nối dùng lại đúng requestId và body; không phát mã mới. Mã báo giá thay đổi hoặc version cũ trả 409.
+
+BookingView thêm payments, refundStatus (none/pending/refunded), refundedTotal, depositPercent, actualCheckIn, confirmedAt; history có by. deposit là cọc còn giữ sau hoàn. GET /bookings thêm refund=pending để lọc chờ hoàn. Các trường commands/hashes nội bộ không xuất ra API.
+
+Quy tắc và giới hạn tại [Tuần 3](09_WEEK3.md).
+
 ## API các giai đoạn sau
 
 Các API sau là hợp đồng dự kiến, chưa có handler và không được coi là chức năng đã chạy:
 
 | Giai đoạn | Nhóm API cần bổ sung |
 |---|---|
-| 3 | POST bookings/:id/confirm, deposits, cancel, refunds, check-in, extend |
 | 4 | Ghi/sửa dịch vụ của booking, promotions, checkout-preview, checkout, invoices và adjustments |
 | 5 | reports/revenue, occupancy, top-services, top-customers, my-receipts |
 
 Ví dụ dữ liệu cho tra cứu sau: ngày nhận 2026-09-10, ngày trả 2026-09-12, số khách 2, loại STANDARD. Trả danh sách phòng phù hợp và đơn giá dự kiến; phải kiểm tra lại ngay lúc xác nhận. Ví dụ checkout-preview trả tiền phòng 2.400.000, dịch vụ 100.000, giảm 200.000, cọc 500.000, tổng 2.300.000 và còn thu 1.800.000. Đây là dữ liệu đặc tả, không phải phản hồi từ API đã hiện thực.
 
-Các thao tác giữ phòng/tiền cần request_id và version; phải chốt phản hồi khi gửi lặp trước khi viết handler.
+Các thao tác giữ phòng/tiền trong tuần 3 dùng requestId và version như trên; tuần 4 tiếp tục dùng cùng cơ chế biên nhận khi triển khai checkout.
 
 Tham khảo hành vi cookie và session: [Express session middleware](https://expressjs.com/en/resources/middleware/session/).

@@ -16,6 +16,7 @@ const userSchema = new Schema({
 }, options);
 
 const roomTypeSchema = new Schema({
+  coordination_version: { type: Number, default: 0 },
   version: { type: Number, default: 0 },
   type_code: { type: String, required: true, unique: true }, name: { type: String, required: true },
   base_price_per_night: money, max_occupancy: positiveInt, amenities: [String], description: String, status,
@@ -32,6 +33,7 @@ const roomSchema = new Schema({
 roomSchema.index({ active: 1, room_type_id: 1, status: 1 });
 
 const customerSchema = new Schema({
+  coordination_version: { type: Number, default: 0 },
   version: { type: Number, default: 0 },
   full_name: { type: String, required: true }, id_card: { type: String, required: true, unique: true, trim: true },
   phone: { type: String, required: true, unique: true, trim: true }, email: String, nationality: String, status,
@@ -57,6 +59,7 @@ const paymentLine = new Schema({
   amount: money, direction: { type: String, enum: ['in', 'out'], required: true },
   method: { type: String, enum: ['cash', 'transfer', 'card'], required: true }, reference: String,
   recorded_at: { type: Date, required: true }, recorded_by: { type: oid, ref: 'User', required: true }, reason: String,
+  recorded_by_name: String,
 });
 const bookingSchema = new Schema({
   version: { type: Number, default: 0 },
@@ -66,9 +69,12 @@ const bookingSchema = new Schema({
   check_in_plan: { type: Date, required: true }, check_out_plan: { type: Date, required: true }, actual_check_in: Date, actual_check_out: Date,
   services_used: [serviceLine], payments: [paymentLine],
   deposit_amount: { ...money, default: 0 },
+  confirmed_at: Date,
+  refund_status: { type: String, enum: ['none', 'pending', 'refunded'], default: 'none' },
+  commands: [{ request_id: { type: String, required: true }, payload_hash: { type: String, required: true }, action: String, at: Date, resulting_version: Number, amount: Number }],
   status: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled'], default: 'pending' },
   created_by: { type: oid, ref: 'User', required: true }, note: { type: String, maxlength: 1000, default: '' },
-  history: [{ action: String, from: String, to: String, reason: String, at: Date, by: { type: oid, ref: 'User' } }],
+  history: [{ action: String, from: String, to: String, reason: String, at: Date, by: { type: oid, ref: 'User' }, by_name: String }],
 }, options);
 bookingSchema.pre('validate', function () {
   if (this.check_in_plan && this.check_out_plan && this.check_out_plan <= this.check_in_plan) this.invalidate('check_out_plan', 'Ngày trả phải sau ngày nhận.');

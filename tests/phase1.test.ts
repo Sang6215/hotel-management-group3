@@ -114,7 +114,7 @@ describe('Phase 1 authentication and foundation', () => {
   it('returns real counts and bounded account pagination', async () => {
     const { agent } = await login();
     const overview = await agent.get('/api/v1/overview').expect(200);
-    expect(overview.body).toMatchObject({ rooms: 12, roomTypes: 3, customers: 3, bookings: 0, phase: 2 });
+    expect(overview.body).toMatchObject({ rooms: 12, roomTypes: 3, customers: 3, bookings: 0, phase: 3 });
     const page = await agent.get('/api/v1/users?page=1&limit=1').expect(200);
     expect(page.body.items).toHaveLength(1); expect(page.body.total).toBe(3);
     await agent.get('/api/v1/users?limit=500').expect(400);

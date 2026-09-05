@@ -2,7 +2,11 @@
 
 **Cập nhật 05/09/2026:** phần tuần 2 bên dưới đã triển khai, gồm cả danh mục dịch vụ. Xem [hướng dẫn và kết quả](07_WEEK2.md). Các phân công ban đầu giữ lại để nhóm tham khảo, không phải công việc còn thiếu trong mã nguồn hiện tại.
 
-## Bắt đầu tuần 3
+## Bắt đầu tuần 4
+
+Tuần 3 đã triển khai; xem [hướng dẫn](09_WEEK3.md). Tiếp theo: ghi dịch vụ theo phòng đang lưu trú, chốt giá dịch vụ; danh mục và áp dụng khuyến mãi; tính phí preview; check-out nguyên tử cùng hóa đơn, tiền và chuyển phòng cleaning; in phiếu và điều chỉnh có quyền quản trị. Các lệnh mới cần tiếp tục dùng version, requestId và khóa phòng hiện có.
+
+## Yêu cầu tuần 3 đã thực hiện
 
 1. Chốt các quy tắc cọc/hủy/hoàn với nhóm; giữ mặc định đề xuất trong đặc tả nếu được nhóm thông qua.
 2. Dùng schedule_version trên phòng làm điểm ghi chung trong transaction: các thao tác xác nhận, đổi lịch, bảo trì và ngừng phòng phải cùng tham gia cơ chế này. Chỉ transaction mà không ghi chung vẫn có thể đặt trùng.

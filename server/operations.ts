@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { Booking, Customer, Room, RoomType, Service } from './models.js';
 import { adminOnly, checkVersion, HttpError, validId } from './http.js';
 import { hotelDay, nightsBetween, validCalendarDate } from '../shared/dates.js';
-import type { BookingView, CustomerView, RoomTypeView, RoomView, ServiceView } from '../shared/types.js';
+import type { CustomerView, RoomTypeView, RoomView, ServiceView } from '../shared/types.js';
+import { bookingView } from './booking-view.js';
+import { lockRooms, lockTypes, transaction } from './scheduling.js';
 
 const text = (max = 100) => z.string().trim().min(1, 'Vui lòng nhập trường này.').max(max, `Tối đa ${max} ký tự.`);
 const optionalText = (max = 200) => z.string().trim().max(max).default('');
@@ -39,14 +41,6 @@ const customerView = (d: InstanceType<typeof Customer>): CustomerView => ({ id: 
 function roomView(d: InstanceType<typeof Room>, type: InstanceType<typeof RoomType> | undefined): RoomView {
   return { id: String(d._id), number: d.room_number, floor: d.floor, typeId: String(d.room_type_id), typeName: type?.name || 'Chưa phân loại', price: type?.base_price_per_night || 0, capacity: type?.max_occupancy || 0, status: d.status as RoomView['status'], active: d.active, version: d.version };
 }
-function bookingView(d: InstanceType<typeof Booking>): BookingView {
-  const checkIn = hotelDay(d.check_in_plan), checkOut = hotelDay(d.check_out_plan), nights = nightsBetween(checkIn, checkOut);
-  return { id: String(d._id), code: d.booking_code, customerId: String(d.customer_id), customer: { fullName: d.customer_snapshot!.full_name, phone: d.customer_snapshot!.phone, idCard: d.customer_snapshot!.id_card },
-    rooms: d.rooms_booked.map(r => ({ roomId: String(r.room_id), number: r.room_number, typeId: String(r.room_type_id), typeName: r.room_type_name, price: r.price_per_night, guestCount: r.guest_count })),
-    checkIn, checkOut, nights, totalGuests: d.rooms_booked.reduce((n, r) => n + r.guest_count, 0), estimatedTotal: d.rooms_booked.reduce((n, r) => n + r.price_per_night * nights, 0),
-    deposit: d.deposit_amount, status: d.status as BookingView['status'], note: d.note || '', version: d.version, createdAt: d.created_at.toISOString(),
-    history: d.history.map(h => ({ action: h.action || '', at: h.at?.toISOString() || '', reason: h.reason || '' })) };
-}
 function dateRange(checkIn: string, checkOut: string) {
   dates.parse({ checkIn, checkOut });
   return { start: new Date(checkIn + 'T00:00:00+07:00'), end: new Date(checkOut + 'T00:00:00+07:00') };
@@ -77,15 +71,19 @@ export function operationsRouter() {
   });
   router.patch('/room-types/:id', adminOnly, async (req, res) => {
     const d = roomTypeInput.extend({ version }).parse(req.body);
-    const item = await RoomType.findById(validId(req.params.id));
-    if (!item) throw new HttpError(404, 'Không tìm thấy loại phòng.');
-    checkVersion(item, d.version);
-    if (d.status === 'inactive' && item.status === 'active') {
-      const roomIds = await Room.find({ room_type_id: item._id }).distinct('_id');
-      if (await Booking.exists({ 'rooms_booked.room_id': { $in: roomIds }, status: { $in: ['confirmed', 'checked_in'] } })) throw new HttpError(409, 'Loại phòng còn lượt đã xác nhận hoặc đang lưu trú.');
-    }
-    item.set({ type_code: d.code, name: d.name, base_price_per_night: d.price, max_occupancy: d.capacity, amenities: d.amenities, description: d.description, status: d.status });
-    await item.save(); res.json({ item: roomTypeView(item) });
+    const typeId = validId(req.params.id);
+    const result = await transaction(async session => {
+      await lockTypes([typeId], session);
+      const item = await RoomType.findById(typeId).session(session);
+      if (!item) throw new HttpError(404, 'Không tìm thấy loại phòng.');
+      checkVersion(item, d.version);
+      if (d.status === 'inactive' && item.status === 'active') {
+        const roomIds = await Room.find({ room_type_id: item._id }).distinct('_id').session(session);
+        if (await Booking.exists({ 'rooms_booked.room_id': { $in: roomIds }, status: { $in: ['confirmed', 'checked_in'] } }).session(session)) throw new HttpError(409, 'Loại phòng còn lượt đã xác nhận hoặc đang lưu trú.');
+      }
+      item.set({ type_code: d.code, name: d.name, base_price_per_night: d.price, max_occupancy: d.capacity, amenities: d.amenities, description: d.description, status: d.status });
+      await item.save({ session }); return roomTypeView(item);
+    }); res.json({ item: result });
   });
   router.get('/services', async (req, res) => {
     const { page, limit, q, status } = catalogQuery.parse(req.query);
@@ -121,27 +119,36 @@ export function operationsRouter() {
   router.post('/rooms', adminOnly, async (req, res) => {
     const d = roomInput.parse(req.body);
     if (d.status === 'occupied') throw new HttpError(400, 'Phòng có khách chỉ được ghi nhận qua check-in.');
-    const type = await RoomType.findOne({ _id: d.typeId, status: 'active' });
-    if (!type) throw new HttpError(400, 'Hãy chọn loại phòng đang hoạt động.');
-    const item = await Room.create({ room_number: d.number, floor: d.floor, room_type_id: d.typeId, status: d.status, active: d.active,
-      unavailable_periods: d.status === 'maintenance' ? [{ start: new Date(), reason: 'Bảo trì' }] : [] });
-    res.status(201).json({ item: roomView(item, type) });
+    const result = await transaction(async session => {
+      await lockTypes([d.typeId], session);
+      const type = await RoomType.findOne({ _id: d.typeId, status: 'active' }).session(session);
+      if (!type) throw new HttpError(400, 'Hãy chọn loại phòng đang hoạt động.');
+      const [item] = await Room.create([{ room_number: d.number, floor: d.floor, room_type_id: d.typeId, status: d.status, active: d.active,
+        unavailable_periods: d.status === 'maintenance' ? [{ start: new Date(), reason: 'Bảo trì' }] : [] }], { session });
+      return roomView(item, type);
+    }); res.status(201).json({ item: result });
   });
   router.patch('/rooms/:id', adminOnly, async (req, res) => {
-    const d = roomInput.extend({ version }).parse(req.body), item = await Room.findById(validId(req.params.id));
-    if (!item) throw new HttpError(404, 'Không tìm thấy phòng.');
-    checkVersion(item, d.version);
-    if (item.status === 'occupied' || item.current_booking_id) throw new HttpError(409, 'Phòng đang có khách; cần hoàn tất lượt lưu trú trước khi sửa.');
-    if (d.status === 'occupied') throw new HttpError(400, 'Phòng có khách chỉ được ghi nhận qua check-in.');
-    const type = await RoomType.findById(d.typeId);
-    if (!type || (type.status !== 'active' && (String(item.room_type_id) !== d.typeId || d.active))) throw new HttpError(400, 'Hãy chọn loại phòng đang hoạt động.');
-    const changesSchedule = d.typeId !== String(item.room_type_id) || d.number !== item.room_number || !d.active || d.status === 'maintenance';
-    if (changesSchedule && await Booking.exists({ 'rooms_booked.room_id': item._id, status: { $in: ['confirmed', 'checked_in'] } })) throw new HttpError(409, 'Phòng còn lịch đã xác nhận; chưa thể đổi loại, đổi số hoặc ngừng sử dụng.');
-    if (item.status !== 'maintenance' && d.status === 'maintenance') item.unavailable_periods.push({ start: new Date(), reason: 'Bảo trì' });
-    if (item.status === 'maintenance' && d.status !== 'maintenance') for (const period of item.unavailable_periods) if (!period.end) period.end = new Date();
-    item.set({ room_number: d.number, floor: d.floor, room_type_id: d.typeId, status: d.status, active: d.active });
-    item.schedule_version += 1;
-    await item.save(); res.json({ item: roomView(item, type) });
+    const d = roomInput.extend({ version }).parse(req.body), roomId = validId(req.params.id);
+    const result = await transaction(async session => {
+      const prior = await Room.findById(roomId).session(session);
+      if (!prior) throw new HttpError(404, 'Không tìm thấy phòng.');
+      await lockTypes([String(prior.room_type_id), d.typeId], session);
+      await lockRooms([roomId], session);
+      const item = await Room.findById(roomId).session(session);
+      if (!item) throw new HttpError(404, 'Không tìm thấy phòng.');
+      checkVersion(item, d.version);
+      if (item.status === 'occupied' || item.current_booking_id) throw new HttpError(409, 'Phòng đang có khách; cần hoàn tất lượt lưu trú trước khi sửa.');
+      if (d.status === 'occupied') throw new HttpError(400, 'Phòng có khách chỉ được ghi nhận qua check-in.');
+      const type = await RoomType.findById(d.typeId).session(session);
+      if (!type || (type.status !== 'active' && (String(item.room_type_id) !== d.typeId || d.active))) throw new HttpError(400, 'Hãy chọn loại phòng đang hoạt động.');
+      const changesSchedule = d.typeId !== String(item.room_type_id) || d.number !== item.room_number || !d.active || d.status === 'maintenance';
+      if (changesSchedule && await Booking.exists({ 'rooms_booked.room_id': item._id, status: { $in: ['confirmed', 'checked_in'] } }).session(session)) throw new HttpError(409, 'Phòng còn lịch đã xác nhận; chưa thể đổi loại, đổi số hoặc ngừng sử dụng.');
+      if (item.status !== 'maintenance' && d.status === 'maintenance') item.unavailable_periods.push({ start: new Date(), reason: 'Bảo trì' });
+      if (item.status === 'maintenance' && d.status !== 'maintenance') for (const period of item.unavailable_periods) if (!period.end) period.end = new Date();
+      item.set({ room_number: d.number, floor: d.floor, room_type_id: d.typeId, status: d.status, active: d.active });
+      await item.save({ session }); return roomView(item, type);
+    }); res.json({ item: result });
   });
   router.get('/customers', async (req, res) => {
     const d = catalogQuery.parse(req.query);
@@ -168,8 +175,8 @@ export function operationsRouter() {
     res.json({ items: items.map(bookingView), total, page, limit });
   });
   router.get('/bookings', async (req, res) => {
-    const d = paging.extend({ status: z.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled']).optional() }).parse(req.query);
-    const filter = { ...(d.status ? { status: d.status } : {}), ...(d.q ? { $or: [{ booking_code: regex(d.q) }, { 'customer_snapshot.full_name': regex(d.q) }, { 'customer_snapshot.phone': regex(normalizePhone(d.q)) }] } : {}) };
+    const d = paging.extend({ status: z.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled']).optional(), refund: z.enum(['pending']).optional() }).parse(req.query);
+    const filter = { ...(d.status ? { status: d.status } : {}), ...(d.refund ? { refund_status: d.refund } : {}), ...(d.q ? { $or: [{ booking_code: regex(d.q) }, { 'customer_snapshot.full_name': regex(d.q) }, { 'customer_snapshot.phone': regex(normalizePhone(d.q)) }] } : {}) };
     const [items, total] = await Promise.all([Booking.find(filter).sort({ created_at: -1, _id: -1 }).skip((d.page - 1) * d.limit).limit(d.limit), Booking.countDocuments(filter)]);
     res.json({ items: items.map(bookingView), total, page: d.page, limit: d.limit });
   });
@@ -196,7 +203,7 @@ export function operationsRouter() {
   router.post('/bookings', async (req, res) => {
     const d = draftInput.parse(req.body), prepared = await prepareDraft(d);
     const item = await Booking.create({ ...prepared, booking_code: `DP-${d.checkIn.replaceAll('-', '')}-${randomUUID().slice(0, 8).toUpperCase()}`, status: 'pending', deposit_amount: 0, created_by: res.locals.user._id,
-      history: [{ action: 'created', to: 'pending', at: new Date(), by: res.locals.user._id, reason: 'Tạo phiếu nháp, chưa giữ phòng.' }] });
+      history: [{ action: 'created', to: 'pending', at: new Date(), by: res.locals.user._id, by_name: res.locals.user.full_name, reason: 'Tạo phiếu nháp, chưa giữ phòng.' }] });
     res.status(201).json({ item: bookingView(item) });
   });
   router.patch('/bookings/:id', async (req, res) => {
@@ -205,7 +212,7 @@ export function operationsRouter() {
     if (item.status !== 'pending') throw new HttpError(409, 'Chỉ được sửa phiếu còn ở trạng thái nháp.');
     checkVersion(item, d.version);
     item.set(await prepareDraft(d));
-    item.history.push({ action: 'draft_updated', from: 'pending', to: 'pending', at: new Date(), by: res.locals.user._id, reason: 'Cập nhật nháp và báo giá lại theo danh mục.' });
+    item.history.push({ action: 'draft_updated', from: 'pending', to: 'pending', at: new Date(), by: res.locals.user._id, by_name: res.locals.user.full_name, reason: 'Cập nhật nháp và báo giá lại theo danh mục.' });
     await item.save(); res.json({ item: bookingView(item) });
   });
   return router;

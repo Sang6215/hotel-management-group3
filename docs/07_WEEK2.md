@@ -53,4 +53,4 @@ Phiếu mẫu đã tạo qua giao diện trên máy này: `DP-20260910-8CAE2E6E`
 
 ## Phần tiếp theo
 
-Tuần 3: xác nhận giữ phòng an toàn khi hai nhân viên tranh cùng lịch; ghi nhận cọc; hủy và duyệt hoàn; check-in; gia hạn; lịch sử thao tác. Tuần 4: ghi dịch vụ thực tế, khuyến mãi, thanh toán và hóa đơn. Web hiện vẫn chạy cục bộ, chưa được đưa lên GitHub/hosting và chưa nghiệm thu trên máy của các thành viên khác.
+Tuần 3 đã thực hiện: [xác nhận, cọc, hủy/hoàn, check-in và gia hạn](09_WEEK3.md). Tuần 4 sẽ ghi dịch vụ thực tế, khuyến mãi, thanh toán và hóa đơn. Web đã có GitHub và demo Render + Atlas; chưa nghiệm thu trên máy của các thành viên khác.

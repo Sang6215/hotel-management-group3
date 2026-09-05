@@ -17,3 +17,11 @@ fieldset{border:0;padding:0;margin:0;min-width:0}.form-fields{display:grid;gap:1
 @media(max-width:1300px){.booking-layout{grid-template-columns:minmax(0,1fr) 285px;gap:16px}.available-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.booking-layout .section{padding:18px}}
 @media(max-width:1050px){.booking-layout{grid-template-columns:1fr}.available-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.booking-layout>aside .quote{position:static}.page-title .action-row{gap:8px}}
 @media(max-width:700px){.available-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}.history-list>a{align-items:flex-start;flex-direction:column;gap:8px}.toolbar.wrap .search-field{min-width:0}.page-title .action-row{flex-wrap:wrap}.available-room{padding:12px}.booking-layout .section{padding:16px}.quote-total{font-size:1.8rem}}
+.booking-operations .action-row { flex-wrap: wrap; gap: 10px; }
+.booking-operations .phase-notice { margin: 12px 0; }
+.booking-operations .phase-notice button { margin-top: 12px; }
+.refund-notice { padding: 12px 16px; border-radius: 8px; background: #fff4dc; color: #784d0b; }
+.command-summary { padding: 14px 16px; background: #eef5f2; border-radius: 10px; margin-bottom: 16px; }
+.command-summary p { margin: 6px 0; }
+label.acknowledgement { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+label.acknowledgement input { width: 18px; min-width: 18px; height: 18px; margin: 3px 0 0; accent-color: #215c48; }

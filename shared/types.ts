@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'staff';
 export type UserView = { id: string; username: string; fullName: string; role: Role; status: 'active' | 'locked'; createdAt: string };
 export type RoomView = { id: string; number: string; floor: number; typeId: string; typeName: string; capacity: number; price: number; status: 'available' | 'occupied' | 'cleaning' | 'maintenance'; active: boolean; version: number };
-export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 2; demo: boolean };
+export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 3; demo: boolean };
 export type Page<T> = { items: T[]; total: number; page: number; limit: number };
 export type CatalogStatus = 'active' | 'inactive';
 export type RoomTypeView = { id: string; code: string; name: string; price: number; capacity: number; amenities: string[]; description: string; status: CatalogStatus; version: number };
@@ -13,6 +13,11 @@ export type BookingView = {
   id: string; code: string; customerId: string; customer: { fullName: string; phone: string; idCard: string };
   rooms: BookingRoom[]; checkIn: string; checkOut: string; nights: number; totalGuests: number; estimatedTotal: number;
   deposit: number; status: BookingStatus; note: string; version: number; createdAt: string;
-  history: { action: string; at: string; reason: string }[];
+  depositPercent: number; refundedTotal: number; refundStatus: 'none' | 'pending' | 'refunded';
+  actualCheckIn: string; confirmedAt: string;
+  payments: { id: string; kind: string; amount: number; direction: 'in' | 'out'; method: PaymentMethod; reference: string; at: string; by: string; reason: string }[];
+  history: { action: string; at: string; reason: string; by: string }[];
 };
+export type PaymentMethod = 'cash' | 'transfer' | 'card';
+export type ConfirmationQuote = { token: string; rooms: BookingRoom[]; customer: BookingView['customer']; total: number; minimumDeposit: number; depositPercent: number; nights: number };
 export type Availability = Page<RoomView> & { checkIn: string; checkOut: string; nights: number };
