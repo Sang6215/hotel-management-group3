@@ -2,6 +2,8 @@
 
 Kiến trúc triển khai dùng một Render Web Service để phục vụ cả React và Express, MongoDB Atlas để lưu dữ liệu. GitHub lưu mã nguồn và kích hoạt triển khai khi nhánh main thay đổi. GitHub Pages không được dùng vì không chạy API Node hoặc MongoDB.
 
+Repository riêng tư: `https://github.com/Sang6215/hotel-management-group3`. Khi kết nối Render, cần cho Render GitHub App quyền đọc repository này.
+
 ## Những gì đã chuẩn bị trong mã nguồn
 
 - `render.yaml` khai báo dịch vụ Node tại khu vực Singapore, lệnh build/start, health check và các biến cấu hình.

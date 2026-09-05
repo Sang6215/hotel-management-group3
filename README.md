@@ -6,6 +6,8 @@ Hướng dẫn thao tác và nghiệm thu: [Tuần 2](docs/07_WEEK2.md).
 
 Kho mã và hướng dẫn chạy online: [triển khai GitHub + Render + MongoDB Atlas](docs/08_DEPLOY_GITHUB.md).
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FSang6215%2Fhotel-management-group3)
+
 Nguồn nghiệp vụ: [bản Word hiện tại](<D:/Học tập/noSql/Group3_Quản lý khách sạn_Phase1.docx>) và [kế hoạch sáu tuần](../KE_HOACH_PHAT_TRIEN_WEB.md).
 
 ## Chạy ngay trên máy hiện tại
