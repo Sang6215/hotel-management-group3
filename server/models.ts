@@ -1,0 +1,120 @@
+import mongoose, { Schema } from 'mongoose';
+
+const options = { timestamps: { createdAt: 'created_at' as const, updatedAt: 'updated_at' as const }, optimisticConcurrency: true, versionKey: 'version' };
+const money = { type: Number, required: true, min: 0, max: Number.MAX_SAFE_INTEGER, validate: Number.isSafeInteger };
+const oid = Schema.Types.ObjectId;
+const status = { type: String, enum: ['active', 'inactive'], default: 'active' };
+const positiveInt = { type: Number, required: true, min: 1, max: 1000, validate: Number.isSafeInteger };
+
+const userSchema = new Schema({
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 40 },
+  full_name: { type: String, required: true, trim: true, maxlength: 100 },
+  password_hash: { type: String, required: true, select: false },
+  role: { type: String, enum: ['admin', 'staff'], required: true },
+  status: { type: String, enum: ['active', 'locked'], default: 'active' },
+  session_version: { type: Number, default: 0 },
+}, options);
+
+const roomTypeSchema = new Schema({
+  version: { type: Number, default: 0 },
+  type_code: { type: String, required: true, unique: true }, name: { type: String, required: true },
+  base_price_per_night: money, max_occupancy: positiveInt, amenities: [String], description: String, status,
+}, options);
+const roomSchema = new Schema({
+  version: { type: Number, default: 0 },
+  room_number: { type: String, required: true, unique: true }, floor: { type: Number, required: true },
+  room_type_id: { type: oid, ref: 'RoomType', required: true },
+  status: { type: String, enum: ['available', 'occupied', 'cleaning', 'maintenance'], default: 'available' },
+  active: { type: Boolean, default: true }, current_booking_id: { type: oid, ref: 'Booking' },
+  schedule_version: { type: Number, default: 0 },
+  unavailable_periods: [{ start: { type: Date, required: true }, end: Date, reason: String }],
+}, options);
+roomSchema.index({ active: 1, room_type_id: 1, status: 1 });
+
+const customerSchema = new Schema({
+  version: { type: Number, default: 0 },
+  full_name: { type: String, required: true }, id_card: { type: String, required: true, unique: true, trim: true },
+  phone: { type: String, required: true, unique: true, trim: true }, email: String, nationality: String, status,
+}, options);
+const serviceSchema = new Schema({
+  version: { type: Number, default: 0 },
+  service_code: { type: String, required: true, unique: true }, name: { type: String, required: true },
+  category: String, unit: { type: String, required: true }, unit_price: money, status,
+}, options);
+const roomLine = new Schema({
+  room_id: { type: oid, ref: 'Room', required: true }, room_number: { type: String, required: true },
+  room_type_id: { type: oid, ref: 'RoomType', required: true }, room_type_name: { type: String, required: true },
+  price_per_night: money, guest_count: positiveInt,
+}, { _id: false });
+const serviceLine = new Schema({
+  service_id: { type: oid, ref: 'Service', required: true }, room_id: { type: oid, ref: 'Room', required: true },
+  service_name: { type: String, required: true }, quantity: positiveInt, unit_price: money, amount: money,
+  used_at: { type: Date, required: true }, created_by: { type: oid, ref: 'User', required: true },
+  voided: { type: Boolean, default: false }, void_reason: String,
+});
+const paymentLine = new Schema({
+  request_id: { type: String, required: true }, kind: { type: String, enum: ['deposit', 'checkout', 'refund', 'adjustment'], required: true },
+  amount: money, direction: { type: String, enum: ['in', 'out'], required: true },
+  method: { type: String, enum: ['cash', 'transfer', 'card'], required: true }, reference: String,
+  recorded_at: { type: Date, required: true }, recorded_by: { type: oid, ref: 'User', required: true }, reason: String,
+});
+const bookingSchema = new Schema({
+  version: { type: Number, default: 0 },
+  booking_code: { type: String, required: true, unique: true }, customer_id: { type: oid, ref: 'Customer', required: true },
+  customer_snapshot: { full_name: { type: String, required: true }, phone: { type: String, required: true }, id_card: { type: String, required: true } },
+  rooms_booked: { type: [roomLine], validate: { validator: (v: unknown[]) => v.length > 0 && v.length <= 50, message: 'Booking needs 1–50 rooms.' } },
+  check_in_plan: { type: Date, required: true }, check_out_plan: { type: Date, required: true }, actual_check_in: Date, actual_check_out: Date,
+  services_used: [serviceLine], payments: [paymentLine],
+  deposit_amount: { ...money, default: 0 },
+  status: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled'], default: 'pending' },
+  created_by: { type: oid, ref: 'User', required: true }, note: { type: String, maxlength: 1000, default: '' },
+  history: [{ action: String, from: String, to: String, reason: String, at: Date, by: { type: oid, ref: 'User' } }],
+}, options);
+bookingSchema.pre('validate', function () {
+  if (this.check_in_plan && this.check_out_plan && this.check_out_plan <= this.check_in_plan) this.invalidate('check_out_plan', 'Ngày trả phải sau ngày nhận.');
+  const ids = this.rooms_booked.map(r => String(r.room_id));
+  if (new Set(ids).size !== ids.length) this.invalidate('rooms_booked', 'Phòng trong booking không được trùng.');
+});
+bookingSchema.index({ 'rooms_booked.room_id': 1, status: 1, check_in_plan: 1, check_out_plan: 1 });
+bookingSchema.index({ customer_id: 1, created_at: -1 });
+
+const promotionSchema = new Schema({
+  code: { type: String, required: true, uppercase: true, trim: true, unique: true },
+  discount_type: { type: String, enum: ['percentage', 'fixed'], required: true },
+  discount_value: money, max_discount_amount: money, min_booking_amount: money,
+  start_date: { type: Date, required: true }, end_date: { type: Date, required: true }, status,
+}, options);
+promotionSchema.pre('validate', function () {
+  if (this.end_date <= this.start_date) this.invalidate('end_date', 'Hiệu lực không hợp lệ.');
+  if (this.discount_type === 'percentage' && this.discount_value > 100) this.invalidate('discount_value', 'Phần trăm tối đa 100.');
+});
+const invoiceSchema = new Schema({
+  invoice_code: { type: String, required: true, unique: true }, booking_id: { type: oid, ref: 'Booking', required: true, unique: true },
+  customer_id: { type: oid, ref: 'Customer', required: true }, customer_name: { type: String, required: true },
+  rooms_snapshot: [roomLine], services_snapshot: [serviceLine],
+  total_room_charge: money, total_service_charge: money, discount_amount: money, deposit_deducted: money,
+  invoice_total: money, balance_collected: money, refund_amount: { ...money, default: 0 },
+  promotion_snapshot: { code: String, discount_type: String, discount_value: Number },
+  payment_status: { type: String, enum: ['paid'], default: 'paid' }, paid_at: { type: Date, required: true },
+  created_by: { type: oid, ref: 'User', required: true },
+  adjustments: [{ reason: String, amount: Number, approved_at: Date, approved_by: { type: oid, ref: 'User' }, request_id: String }],
+}, options);
+invoiceSchema.index({ payment_status: 1, paid_at: -1 });
+invoiceSchema.index({ customer_id: 1, paid_at: -1 });
+
+export const User = mongoose.model('User', userSchema, 'users');
+export const RoomType = mongoose.model('RoomType', roomTypeSchema, 'room_types');
+export const Room = mongoose.model('Room', roomSchema, 'rooms');
+export const Customer = mongoose.model('Customer', customerSchema, 'customers');
+export const Service = mongoose.model('Service', serviceSchema, 'services');
+export const Booking = mongoose.model('Booking', bookingSchema, 'bookings');
+export const Promotion = mongoose.model('Promotion', promotionSchema, 'promotions');
+export const Invoice = mongoose.model('Invoice', invoiceSchema, 'invoices');
+
+export async function initializeModels() {
+  // All collections exist before any transaction uses them. This only adds declared indexes.
+  for (const model of [User, RoomType, Room, Customer, Service, Booking, Promotion, Invoice]) {
+    await model.createCollection();
+    await model.createIndexes();
+  }
+}
