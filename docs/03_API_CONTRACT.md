@@ -98,17 +98,40 @@ BookingView thêm payments, refundStatus (none/pending/refunded), refundedTotal,
 
 Quy tắc và giới hạn tại [Tuần 3](09_WEEK3.md).
 
+## API bổ sung tuần 4 (đã hoạt động)
+
+Tiền tố /api/v1; mọi thao tác ghi cần cookie phiên + JSON + CSRF. Các lệnh dịch vụ, trả phòng và điều chỉnh cần requestId UUID và version. Body strict; không nhận giá tự đặt từ client.
+
+| Đường dẫn | Method | Đầu vào chính | Quyền |
+|---|---|---|---|
+| /promotions | GET, POST | GET: q, status, page, limit. POST: code, type fixed/percentage, value, maxDiscount, minAmount, startsOn, endsOn, status | Đọc cả hai; ghi admin |
+| /promotions/:id | PATCH | Trường tạo + version | Admin |
+| /bookings/:id/services | POST | requestId, version, roomId, serviceId, serviceVersion, quantity | Cả hai; checked_in |
+| /bookings/:id/services/:lineId | PATCH | requestId, version, quantity, voided, reason | Cả hai; checked_in |
+| /bookings/:id/checkout-preview | POST | promotionCode, có thể để trống | Cả hai; chỉ đọc, checked_in |
+| /bookings/:id/checkout | POST | requestId, version, promotionCode, quoteToken, amount, method, reference, verified=true | Cả hai; khoản hoàn cần admin |
+| /invoices | GET | q, from, to, customerId, page, limit | Cả hai |
+| /invoices/:id | GET | Không | Cả hai |
+| /invoices/:id/adjustments | POST | requestId, version hóa đơn, amount có dấu, method, reference, reason, verified=true | Admin |
+
+checkout-preview trả quote gồm token, version, ngày thực tế, nights, rooms, services, roomTotal, serviceTotal, discount, total, deposit, toCollect, toRefund và promotionCode. Khi trả phòng, amount phải đúng khoản thu hoặc hoàn trong báo giá; máy chủ tính lại và từ chối báo giá cũ. Tiền phòng, dịch vụ, hóa đơn và sổ thu/hoàn được chốt trong cùng transaction; phòng chuyển cleaning.
+
+Dịch vụ lưu đơn giá tại thời điểm ghi. Sửa số lượng giữ đơn giá, hủy giữ lịch sử và loại khỏi tổng; dòng đã hủy không mở lại. Một hóa đơn dùng tối đa một mã khuyến mãi, tính trên phòng + dịch vụ, có mức tối thiểu/trần giảm và ngày hiệu lực bao gồm cả ngày kết thúc.
+
+BookingView thêm services, serviceTotal, actualCheckOut và invoiceId. InvoiceView trả bản chụp khách/phòng/dịch vụ/giá/sổ tiền tại lúc lập, cùng adjustments, adjustmentTotal và effectiveTotal. Điều chỉnh dương là thu thêm, âm là hoàn; không sửa giá trị gốc. Danh sách có phân trang tối đa 200; bộ lọc ngày hóa đơn tính theo Việt Nam và bao gồm hết ngày to.
+
+Lệnh ghi trả item hiện tại và receipt gốc; gửi lại cùng UUID, body và tài khoản không ghi lần nữa. Sau mất kết nối phải gửi lại nguyên yêu cầu. Xem [quy tắc và kiểm thử tuần 4](10_WEEK4.md).
+
 ## API các giai đoạn sau
 
 Các API sau là hợp đồng dự kiến, chưa có handler và không được coi là chức năng đã chạy:
 
 | Giai đoạn | Nhóm API cần bổ sung |
 |---|---|
-| 4 | Ghi/sửa dịch vụ của booking, promotions, checkout-preview, checkout, invoices và adjustments |
 | 5 | reports/revenue, occupancy, top-services, top-customers, my-receipts |
 
-Ví dụ dữ liệu cho tra cứu sau: ngày nhận 2026-09-10, ngày trả 2026-09-12, số khách 2, loại STANDARD. Trả danh sách phòng phù hợp và đơn giá dự kiến; phải kiểm tra lại ngay lúc xác nhận. Ví dụ checkout-preview trả tiền phòng 2.400.000, dịch vụ 100.000, giảm 200.000, cọc 500.000, tổng 2.300.000 và còn thu 1.800.000. Đây là dữ liệu đặc tả, không phải phản hồi từ API đã hiện thực.
+Ca kiểm thử thanh toán đã chạy: tiền phòng 2.400.000, dịch vụ 100.000, giảm 200.000, cọc 500.000, tổng 2.300.000 và còn thu 1.800.000. Dữ liệu kiểm thử nằm trên replica set riêng, không phải giao dịch thực tế trên Atlas.
 
-Các thao tác giữ phòng/tiền trong tuần 3 dùng requestId và version như trên; tuần 4 tiếp tục dùng cùng cơ chế biên nhận khi triển khai checkout.
+Các thao tác giữ phòng/tiền tuần 3 và thanh toán tuần 4 dùng requestId, version và biên nhận như trên.
 
 Tham khảo hành vi cookie và session: [Express session middleware](https://expressjs.com/en/resources/middleware/session/).

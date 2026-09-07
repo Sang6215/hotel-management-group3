@@ -1,8 +1,8 @@
 # Hotel Desk của Nhóm 3
 
-Hiện đã triển khai tuần 3 (Phase 3): xác nhận giữ phòng và cọc, chống đặt trùng đồng thời, cọc bổ sung, hủy/hoàn, nhận phòng và gia hạn. Có sổ tiền, lịch sử người thao tác và xử lý gửi lặp. Các chức năng danh mục/khách/phiếu nháp tuần 2 giữ nguyên. Dịch vụ phát sinh, trả phòng/thanh toán thuộc tuần 4.
+Hiện đã triển khai tuần 4 (Phase 4): ghi dịch vụ theo phòng, khuyến mãi, xem trước chi phí, trả phòng/thu hoặc hoàn tiền, hóa đơn nội bộ có bản in và điều chỉnh có quyền quản trị. Giữ nguyên các chức năng tuần 1–3, sổ thu/hoàn, lịch sử thao tác và cơ chế chống gửi lặp.
 
-Hướng dẫn thao tác và nghiệm thu: [Tuần 3](docs/09_WEEK3.md), [Tuần 2](docs/07_WEEK2.md).
+Hướng dẫn thao tác và nghiệm thu: [Tuần 4](docs/10_WEEK4.md), [Tuần 3](docs/09_WEEK3.md), [Tuần 2](docs/07_WEEK2.md).
 
 Kho mã và hướng dẫn chạy online: [triển khai GitHub + Render + MongoDB Atlas](docs/08_DEPLOY_GITHUB.md).
 
@@ -63,7 +63,7 @@ Nếu nhóm đã có replica set khác, sao chép `.env.example` thành `.env` v
 - Tạo/sửa phiếu nháp nhiều phòng, kiểm tra sức chứa từng phòng, tính giá máy chủ, chụp thông tin khách và giá dự kiến, lưu lịch sử chỉnh sửa.
 - Biểu mẫu sửa gửi version; dữ liệu cũ bị từ chối để tránh ghi đè thay đổi của người khác.
 
-Trang Phòng khách sạn thể hiện trạng thái hiện tại; phần Tạo đặt phòng tra lịch theo ngày. Phiếu pending không giữ lịch. Tuần 3 đã bổ sung xác nhận/cọc, check-in, hủy/hoàn, đổi lịch và gia hạn trong chi tiết phiếu. Dịch vụ phát sinh, hóa đơn và báo cáo chưa có.
+Trang Phòng khách sạn thể hiện trạng thái hiện tại; phần Tạo đặt phòng tra lịch theo ngày. Phiếu pending không giữ lịch. Chi tiết phiếu có xác nhận/cọc, nhận phòng, hủy/hoàn, đổi lịch, gia hạn, dịch vụ và trả phòng. Trả phòng đồng thời lập hóa đơn, ghi tiền và chuyển mọi phòng sang đang dọn. Quản trị xác nhận dọn xong trước khi giao phòng tiếp. Báo cáo thống kê thuộc tuần 5, chưa triển khai.
 
 ## Cấu trúc dự án
 
@@ -89,7 +89,7 @@ pnpm db:check
 
 Test tự khởi động replica set tạm riêng và tự dọn dữ liệu do test tạo; không dùng URI database phát triển. `db:check` cần MongoDB đã chạy, xác nhận replica set, commit và rollback bằng bản ghi chẩn đoán riêng; bản ghi được dọn ngay sau kiểm tra. Collection kỹ thuật rỗng `_phase1_probe` có thể còn lại.
 
-Kết quả nền tảng ở [biên bản Phase 1](docs/05_VERIFICATION.md); bộ kiểm tra hiện có 48 bài và luồng trình duyệt ở [nghiệm thu tuần 3](docs/09_WEEK3.md).
+Kết quả nền tảng ở [biên bản Phase 1](docs/05_VERIFICATION.md); bộ kiểm tra hiện có 78 bài. Phạm vi và kết quả mới nhất ở [nghiệm thu tuần 4](docs/10_WEEK4.md).
 
 ## Bản build và triển khai sau này
 

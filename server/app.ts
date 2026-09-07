@@ -12,6 +12,7 @@ import type { Role, UserView } from '../shared/types.js';
 import { HttpError, validId } from './http.js';
 import { operationsRouter } from './operations.js';
 import { reservationsRouter } from './reservations.js';
+import { billingRouter } from './billing.js';
 
 declare module 'express-session' {
   interface SessionData { userId?: string; userVersion?: number; csrf?: string }
@@ -46,7 +47,7 @@ export function createApp(options: AppOptions) {
 
   app.get('/api/v1/health', (_req, res) => {
     const ready = mongoose.connection.readyState === 1;
-    res.status(ready ? 200 : 503).json({ status: ready ? 'ok' : 'unavailable', phase: 3 });
+    res.status(ready ? 200 : 503).json({ status: ready ? 'ok' : 'unavailable', phase: 4 });
   });
   app.get('/api/v1/auth/csrf', (req, res) => {
     req.session.csrf ||= token();
@@ -122,10 +123,11 @@ export function createApp(options: AppOptions) {
       Room.countDocuments({ active: true }), Room.countDocuments({ active: true, status: 'available' }),
       Customer.countDocuments(), Booking.countDocuments(), RoomType.countDocuments({ status: 'active' }),
     ]);
-    res.json({ rooms, available, customers, bookings, roomTypes, phase: 3, demo: !!options.demo });
+    res.json({ rooms, available, customers, bookings, roomTypes, phase: 4, demo: !!options.demo });
   });
   app.use('/api/v1', operationsRouter());
   app.use('/api/v1', reservationsRouter());
+  app.use('/api/v1', billingRouter());
   app.use('/api/v1/users', (_req, res, next) => {
     if (res.locals.user.role !== 'admin') throw new HttpError(403, 'Chỉ quản trị viên được quản lý tài khoản.');
     next();

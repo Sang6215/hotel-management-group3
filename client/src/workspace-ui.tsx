@@ -38,7 +38,7 @@ export function Modal({ title, busy, close, children, wide = false }: { title: s
   useEffect(() => { ref.current?.showModal(); }, []);
   return <dialog ref={ref} className={wide ? 'wide-dialog' : ''} aria-label={title} onCancel={e => { e.preventDefault(); if (!busy) close(); }}><div className="dialog-heading"><h2>{title}</h2><button type="button" className="icon-button" aria-label="Đóng" disabled={busy} onClick={close}><X /></button></div>{children}</dialog>;
 }
-export type Field = { key: string; label: string; type?: 'number' | 'email' | 'textarea'; required?: boolean; min?: number; max?: number; maxLength?: number; options?: { value: string; label: string; disabled?: boolean }[]; hint?: string };
+export type Field = { key: string; label: string; type?: 'number' | 'email' | 'textarea' | 'date'; required?: boolean; min?: number; max?: number; maxLength?: number; options?: { value: string; label: string; disabled?: boolean }[]; hint?: string };
 export function RecordForm({ title, initial, fields, save, close }: { title: string; initial: Record<string, string | number>; fields: Field[]; save: (values: Record<string, string | number>) => Promise<void>; close: () => void }) {
   const [values, setValues] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});

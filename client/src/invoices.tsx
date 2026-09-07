@@ -1,0 +1,47 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { ArrowLeft, Printer, Search } from 'lucide-react';
+import { calendarLabel, ErrorBox, LoadState, Modal, money, Pager, useRemote } from './workspace-ui';
+import { BillingSummary, localTime, MutationNotice, PaymentFields, paymentMethods, PaymentsTable, useSafeMutation } from './billing-ui';
+import type { InvoiceView, Page, PaymentMethod, UserView } from '../../shared/types';
+
+export function InvoicesPage({ route, user }: { route: string; user: UserView }) {
+  const id = route.split('/')[1];
+  return id ? <InvoiceDetail key={id} id={id} user={user} /> : <InvoiceList />;
+}
+function InvoiceList() {
+  const [q, setQ] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState(''), [page, setPage] = useState(1);
+  const params = new URLSearchParams({ q, page: String(page), limit: '10', ...(from ? { from } : {}), ...(to ? { to } : {}) });
+  const result = useRemote<Page<InvoiceView>>('/invoices?' + params);
+  return <><div className="page-title"><div><div className="eyebrow">THANH TOÁN</div><h1>Hóa đơn</h1><p>Phiếu thanh toán nội bộ đã hoàn tất; bản gốc và lịch sử điều chỉnh.</p></div><button className="button secondary" onClick={result.reload}>Tải lại</button></div>
+    <div className="toolbar wrap"><label className="search-field"><Search size={18} /><input aria-label="Tìm hóa đơn" placeholder="Mã hóa đơn, phiếu đặt hoặc khách…" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></label><label>Thanh toán từ ngày<input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} /></label><label>Đến hết ngày<input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }} /></label></div><ErrorBox error={result.error} retry={result.reload} /><LoadState busy={result.busy} empty={result.data?.total === 0} />
+    {result.data && result.data.total > 0 && <section className="section records-table"><div className="table-scroll"><table><thead><tr><th>Hóa đơn / Phiếu đặt</th><th>Khách hàng</th><th>Ngày thanh toán</th><th>Giá trị gốc</th><th>Sau điều chỉnh</th><th>Chi tiết</th></tr></thead><tbody>{result.data.items.map(i => <tr key={i.id}><td><strong>{i.code}</strong><small className="block">{i.bookingCode}</small></td><td>{i.customer.fullName}</td><td>{localTime(i.paidAt)}<small className="block">{i.by}</small></td><td>{money(i.total)}</td><td>{money(i.effectiveTotal)}<small className="block">{i.adjustments.length} điều chỉnh</small></td><td><a href={`#invoices/${i.id}`} className="text-button">Xem / in</a></td></tr>)}</tbody></table></div><Pager data={result.data} page={page} setPage={setPage} /></section>}
+  </>;
+}
+function InvoiceDetail({ id, user }: { id: string; user: UserView }) {
+  const result = useRemote<{ item: InvoiceView }>(`/invoices/${encodeURIComponent(id)}`), i = result.data?.item;
+  const [adjust, setAdjust] = useState(false);
+  const mutation = useSafeMutation<{ item: InvoiceView }>(`hotel-invoice:${user.id}:${id}`, `/invoices/${id}/`, () => { setAdjust(false); result.reload(); });
+  useEffect(() => { if (mutation.pending && !mutation.busy) setAdjust(false); }, [mutation.pending, mutation.busy]);
+  return <><a href="#invoices" className="text-button back-link no-print"><ArrowLeft size={17} />Danh sách hóa đơn</a><ErrorBox error={result.error} retry={result.reload} /><LoadState busy={result.busy} /><div className="no-print"><MutationNotice mutation={mutation} /></div>
+    {i && <><div className="page-title no-print"><div><h1>Chi tiết hóa đơn</h1><p>Giữ nguyên chứng từ gốc; mọi thay đổi được ghi riêng.</p></div><div className="action-row"><a className="button secondary" href={`#bookings/${i.bookingId}`}>Xem phiếu đặt</a>{user.role === 'admin' && <button className="button secondary" disabled={mutation.busy || !!mutation.pending} onClick={() => { mutation.setError(''); setAdjust(true); }}>Điều chỉnh hóa đơn</button>}<button className="button primary" onClick={() => window.print()}><Printer size={17} />In phiếu</button></div></div>
+      <article className="section invoice-document"><header className="invoice-header"><div><div className="eyebrow">HOTEL DESK · NHÓM 3</div><h2>Phiếu thanh toán nội bộ</h2><p>{i.code}</p></div><div><span className="booking-badge completed">Đã thanh toán</span><p>{localTime(i.paidAt)}</p><small>Người lập: {i.by}</small></div></header>
+        <dl className="detail-grid"><div><dt>Khách hàng</dt><dd>{i.customer.fullName}</dd></div><div><dt>Phiếu đặt</dt><dd>{i.bookingCode}</dd></div><div><dt>Điện thoại</dt><dd>{i.customer.phone}</dd></div><div><dt>Giấy tờ</dt><dd>{i.customer.idCard}</dd></div><div><dt>Ngày nhận thực tế</dt><dd>{calendarLabel(i.checkIn)}</dd></div><div><dt>Ngày trả thực tế</dt><dd>{calendarLabel(i.checkOut)} · {i.nights} đêm tính phí</dd></div></dl>
+        <h3>Chi tiết tiền phòng</h3><div className="table-scroll"><table><thead><tr><th>Phòng / Loại</th><th>Số đêm</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>{i.rooms.map(r => <tr key={r.roomId}><td>{r.number} · {r.typeName}</td><td>{i.nights}</td><td>{money(r.price)}</td><td>{money(r.price * i.nights)}</td></tr>)}</tbody></table></div>
+        <h3>Dịch vụ sử dụng</h3>{i.services.length ? <div className="table-scroll"><table><thead><tr><th>Dịch vụ / Phòng</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>{i.services.map(s => <tr key={s.id}><td>{s.name}<small className="block">Phòng {s.roomNumber}</small></td><td>{s.quantity} {s.unit}</td><td>{money(s.price)}</td><td>{money(s.amount)}</td></tr>)}</tbody></table></div> : <p className="muted">Không có dịch vụ tính phí.</p>}
+        <div className="invoice-summary"><div><p>Mã khuyến mãi: <strong>{i.promotionCode || 'Không áp dụng'}</strong></p><p className="helper-text">Giá trị hóa đơn bao gồm phần đã cọc. Khoản thu khi trả phòng chỉ là phần còn lại.</p></div><BillingSummary value={i} /></div>
+        <h3>Sổ thu và hoàn tại thời điểm lập phiếu</h3><PaymentsTable payments={i.payments} />
+        <h3>Điều chỉnh sau thanh toán</h3>{i.adjustments.length ? <div className="table-scroll"><table><thead><tr><th>Thời gian / Người duyệt</th><th>Lý do</th><th>Chênh lệch đã thu/hoàn</th><th>Phương thức</th></tr></thead><tbody>{i.adjustments.map(a => <tr key={a.id}><td>{localTime(a.at)}<small className="block">{a.by}</small></td><td>{a.reason}</td><td className={a.amount < 0 ? 'refund' : ''}>{a.amount > 0 ? '+' : '−'}{money(Math.abs(a.amount))}</td><td>{paymentMethods[a.method]}<small className="block">{a.reference}</small></td></tr>)}</tbody></table></div> : <p className="muted">Chưa có điều chỉnh.</p>}
+        <div className="invoice-effective"><span>Giá trị sau điều chỉnh</span><strong>{money(i.effectiveTotal)}</strong></div><p className="helper-text">Bản gốc {money(i.total)} + điều chỉnh {i.adjustmentTotal < 0 ? '−' : '+'}{money(Math.abs(i.adjustmentTotal))}. Các khoản chênh lệch đã được ghi thu/hoàn riêng.</p>
+      </article>
+      {adjust && <AdjustmentForm invoice={i} busy={mutation.busy} error={mutation.error} close={() => setAdjust(false)} save={data => mutation.send(`/invoices/${id}/adjustments`, 'POST', { ...data, version: i.version }, 'Điều chỉnh hóa đơn')} />}
+    </>}
+  </>;
+}
+function AdjustmentForm({ invoice: i, busy, error, close, save }: { invoice: InvoiceView; busy: boolean; error: string; close: () => void; save: (data: object) => Promise<void> }) {
+  const [direction, setDirection] = useState('in'), [amount, setAmount] = useState(0), [reason, setReason] = useState(''), [method, setMethod] = useState<PaymentMethod>('cash'), [reference, setReference] = useState(''), [verified, setVerified] = useState(false);
+  const signed = direction === 'in' ? amount : -amount;
+  async function submit(e: FormEvent) { e.preventDefault(); await save({ amount: signed, reason, method, reference, verified }); }
+  return <Modal title="Điều chỉnh hóa đơn đã thanh toán" busy={busy} close={close}><form onSubmit={submit}><p>Giữ nguyên hóa đơn gốc. Chỉ xác nhận sau khi đã đối chiếu và thu/hoàn khoản chênh lệch.</p><fieldset className="form-fields" disabled={busy}>
+    <label>Loại điều chỉnh<select value={direction} onChange={e => { setDirection(e.target.value); setVerified(false); }}><option value="in">Tăng giá trị · Thu bổ sung</option><option value="out">Giảm giá trị · Hoàn cho khách</option></select></label><label>Số tiền chênh lệch (đồng)<input type="number" min={1} max={direction === 'out' ? i.effectiveTotal : 20_000_000_000_000 - i.effectiveTotal} step={1} required value={amount} onChange={e => { setAmount(Number(e.target.value)); setVerified(false); }} /></label><p>Giá trị sau điều chỉnh: <strong>{money(i.effectiveTotal + signed)}</strong></p><label>Lý do điều chỉnh<textarea required minLength={3} maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></label><PaymentFields method={method} setMethod={setMethod} reference={reference} setReference={setReference} /><label className="acknowledgement"><input type="checkbox" required checked={verified} onChange={e => setVerified(e.target.checked)} /><span>Đã xác minh {direction === 'out' ? 'hoàn' : 'thu'} {money(amount)} và lý do điều chỉnh.</span></label>
+  </fieldset><ErrorBox error={error} /><div className="dialog-actions"><button type="button" className="button secondary" disabled={busy} onClick={close}>Đóng</button><button className="button primary" disabled={busy || !verified || amount <= 0}>Ghi nhận điều chỉnh</button></div></form></Modal>;
+}

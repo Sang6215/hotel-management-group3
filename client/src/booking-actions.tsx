@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from './api';
+import { PaymentsTable } from './billing-ui';
 import { calendarLabel, ErrorBox, errorMessage, LoadState, Modal, money, useRemote } from './workspace-ui';
 import { hotelDay, nextDay, nightsBetween } from '../../shared/dates';
 import type { BookingView, ConfirmationQuote, PaymentMethod, UserView } from '../../shared/types';
@@ -7,7 +8,7 @@ import type { BookingView, ConfirmationQuote, PaymentMethod, UserView } from '..
 type Action = 'confirm' | 'deposits' | 'cancel' | 'refunds' | 'check-in' | 'extend' | 'reschedule';
 type Pending = { action: Action; body: string };
 const labels: Record<Action, string> = { confirm: 'Xác nhận & nhận cọc', deposits: 'Nhận cọc bổ sung', cancel: 'Hủy đặt phòng', refunds: 'Duyệt & ghi nhận hoàn cọc', 'check-in': 'Nhận phòng', extend: 'Gia hạn lưu trú', reschedule: 'Đổi lịch nhận/trả' };
-export const historyLabels: Record<string, string> = { created: 'Tạo phiếu nháp', draft_updated: 'Cập nhật phiếu nháp', confirmed: 'Xác nhận & nhận cọc', deposit_received: 'Nhận cọc bổ sung', cancelled: 'Hủy đặt phòng', refunded: 'Hoàn cọc', checked_in: 'Nhận phòng', extended: 'Gia hạn', rescheduled: 'Đổi lịch' };
+export const historyLabels: Record<string, string> = { created: 'Tạo phiếu nháp', draft_updated: 'Cập nhật phiếu nháp', confirmed: 'Xác nhận & nhận cọc', deposit_received: 'Nhận cọc bổ sung', cancelled: 'Hủy đặt phòng', refunded: 'Hoàn cọc', checked_in: 'Nhận phòng', extended: 'Gia hạn', rescheduled: 'Đổi lịch', service_added: 'Ghi nhận dịch vụ', service_corrected: 'Sửa/hủy dịch vụ', checked_out: 'Trả phòng & lập hóa đơn', invoice_adjusted: 'Điều chỉnh hóa đơn' };
 const methods: Record<PaymentMethod, string> = { cash: 'Tiền mặt', transfer: 'Chuyển khoản', card: 'Thẻ' };
 const localTime = (s: string) => new Date(s).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 
@@ -38,8 +39,8 @@ export function BookingActions({ booking: b, user, reload }: { booking: BookingV
     {b.refundStatus === 'pending' && <p className="refund-notice">Chờ quản trị viên hoàn {money(b.deposit)}. Lịch phòng đã được giải phóng.</p>}
     {b.refundStatus === 'refunded' && <p className="success">Đã hoàn toàn bộ cọc: {money(b.refundedTotal)}.</p>}
     <div className="action-row">{allowed.map(a => <button key={a} className={`button ${a === 'confirm' || a === 'check-in' || a === 'refunds' ? 'primary' : 'secondary'}`} disabled={busy || !!pending} onClick={() => { setError(''); setAction(a); }}>{labels[a]}</button>)}</div>
-    {b.status === 'checked_in' && <p className="helper-text">Khách đang lưu trú. Ghi dịch vụ và trả phòng/thanh toán sẽ được bổ sung ở tuần 4.</p>}
-    {b.actualCheckIn && <p>Đã nhận phòng lúc {localTime(b.actualCheckIn)}.</p>}
+    {b.status === 'checked_in' && <p className="helper-text">Khách đang lưu trú. Ghi dịch vụ và trả phòng tại phần Dịch vụ phát sinh & thanh toán bên dưới.</p>}
+    {b.actualCheckIn && <p>Đã nhận phòng lúc {localTime(b.actualCheckIn)}.</p>}{b.actualCheckOut && <p>Đã trả phòng lúc {localTime(b.actualCheckOut)}.</p>}
     {action && <ActionForm key={action} action={action} b={b} busy={busy} pending={!!pending} error={error} close={() => setAction(undefined)} submit={submit} />}
   </section>;
 }
@@ -73,5 +74,5 @@ function ActionForm({ action, b, busy, pending, error, close, submit }: { action
   </form></Modal>;
 }
 export function PaymentLedger({ booking: b }: { booking: BookingView }) {
-  return <section className="section"><h2>Sổ cọc & hoàn tiền</h2>{!b.payments.length ? <p className="muted">Chưa có khoản thu hoặc hoàn.</p> : <div className="table-scroll"><table><thead><tr><th>Thời gian / Người ghi</th><th>Giao dịch</th><th>Số tiền</th><th>Phương thức / Tham chiếu</th></tr></thead><tbody>{b.payments.map(p => <tr key={p.id}><td>{localTime(p.at)}<small className="block">{p.by}</small></td><td>{p.kind === 'refund' ? 'Hoàn cọc' : 'Thu cọc'}<small className="block">{p.reason}</small></td><td>{p.direction === 'out' ? '−' : '+'}{money(p.amount)}</td><td>{methods[p.method]}<small className="block">{p.reference}</small></td></tr>)}</tbody></table></div>}</section>;
+  return <section className="section"><h2>Sổ thu & hoàn tiền</h2>{!b.payments.length ? <p className="muted">Chưa có khoản thu hoặc hoàn.</p> : <PaymentsTable payments={b.payments} />}</section>;
 }

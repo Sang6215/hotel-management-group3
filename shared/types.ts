@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'staff';
 export type UserView = { id: string; username: string; fullName: string; role: Role; status: 'active' | 'locked'; createdAt: string };
 export type RoomView = { id: string; number: string; floor: number; typeId: string; typeName: string; capacity: number; price: number; status: 'available' | 'occupied' | 'cleaning' | 'maintenance'; active: boolean; version: number };
-export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 3; demo: boolean };
+export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 4; demo: boolean };
 export type Page<T> = { items: T[]; total: number; page: number; limit: number };
 export type CatalogStatus = 'active' | 'inactive';
 export type RoomTypeView = { id: string; code: string; name: string; price: number; capacity: number; amenities: string[]; description: string; status: CatalogStatus; version: number };
@@ -14,10 +14,22 @@ export type BookingView = {
   rooms: BookingRoom[]; checkIn: string; checkOut: string; nights: number; totalGuests: number; estimatedTotal: number;
   deposit: number; status: BookingStatus; note: string; version: number; createdAt: string;
   depositPercent: number; refundedTotal: number; refundStatus: 'none' | 'pending' | 'refunded';
-  actualCheckIn: string; confirmedAt: string;
+  actualCheckIn: string; actualCheckOut: string; confirmedAt: string; invoiceId: string;
+  services: ServiceUsageView[]; serviceTotal: number;
   payments: { id: string; kind: string; amount: number; direction: 'in' | 'out'; method: PaymentMethod; reference: string; at: string; by: string; reason: string }[];
   history: { action: string; at: string; reason: string; by: string }[];
 };
 export type PaymentMethod = 'cash' | 'transfer' | 'card';
 export type ConfirmationQuote = { token: string; rooms: BookingRoom[]; customer: BookingView['customer']; total: number; minimumDeposit: number; depositPercent: number; nights: number };
 export type Availability = Page<RoomView> & { checkIn: string; checkOut: string; nights: number };
+export type ServiceUsageView = { id: string; serviceId: string; code: string; name: string; unit: string; roomId: string; roomNumber: string; quantity: number; price: number; amount: number; usedAt: string; by: string; voided: boolean; reason: string };
+export type PromotionView = { id: string; code: string; type: 'percentage' | 'fixed'; value: number; maxDiscount: number; minAmount: number; startsOn: string; endsOn: string; status: CatalogStatus; version: number };
+export type BillingTotals = { roomTotal: number; serviceTotal: number; subtotal: number; discount: number; total: number; deposit: number; toCollect: number; toRefund: number };
+export type CheckoutQuote = BillingTotals & { token: string; version: number; checkIn: string; checkOut: string; nights: number; promotionCode: string; rooms: BookingRoom[]; services: ServiceUsageView[] };
+export type InvoiceView = BillingTotals & {
+  id: string; code: string; bookingId: string; bookingCode: string; customerId: string; customer: BookingView['customer'];
+  checkIn: string; checkOut: string; nights: number; paidAt: string; by: string; version: number; promotionCode: string;
+  rooms: BookingRoom[]; services: ServiceUsageView[]; payments: BookingView['payments'];
+  adjustmentTotal: number; effectiveTotal: number;
+  adjustments: { id: string; amount: number; reason: string; at: string; by: string; method: PaymentMethod; reference: string }[];
+};

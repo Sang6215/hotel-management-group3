@@ -2,9 +2,9 @@
 
 **Cập nhật 05/09/2026:** phần tuần 2 bên dưới đã triển khai, gồm cả danh mục dịch vụ. Xem [hướng dẫn và kết quả](07_WEEK2.md). Các phân công ban đầu giữ lại để nhóm tham khảo, không phải công việc còn thiếu trong mã nguồn hiện tại.
 
-## Bắt đầu tuần 4
+## Bắt đầu tuần 5
 
-Tuần 3 đã triển khai; xem [hướng dẫn](09_WEEK3.md). Tiếp theo: ghi dịch vụ theo phòng đang lưu trú, chốt giá dịch vụ; danh mục và áp dụng khuyến mãi; tính phí preview; check-out nguyên tử cùng hóa đơn, tiền và chuyển phòng cleaning; in phiếu và điều chỉnh có quyền quản trị. Các lệnh mới cần tiếp tục dùng version, requestId và khóa phòng hiện có.
+Tuần 4 đã triển khai; xem [hướng dẫn và nghiệm thu](10_WEEK4.md). Tiếp theo: báo cáo doanh thu, công suất phòng, dịch vụ và khách hàng; phân quyền báo cáo và sổ thu cá nhân. Doanh thu cần tách giá trị hóa đơn, tiền thực thu/hoàn và các điều chỉnh; không tính cọc thêm lần nữa. Giữ nguyên dữ liệu gốc của hóa đơn để đối chiếu. Các phân công và checklist lịch sử bên dưới là kế hoạch ban đầu, không phải trạng thái triển khai hiện tại.
 
 ## Yêu cầu tuần 3 đã thực hiện
 

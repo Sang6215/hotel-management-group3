@@ -39,6 +39,7 @@ const customerSchema = new Schema({
   phone: { type: String, required: true, unique: true, trim: true }, email: String, nationality: String, status,
 }, options);
 const serviceSchema = new Schema({
+  coordination_version: { type: Number, default: 0 },
   version: { type: Number, default: 0 },
   service_code: { type: String, required: true, unique: true }, name: { type: String, required: true },
   category: String, unit: { type: String, required: true }, unit_price: money, status,
@@ -50,6 +51,7 @@ const roomLine = new Schema({
 }, { _id: false });
 const serviceLine = new Schema({
   service_id: { type: oid, ref: 'Service', required: true }, room_id: { type: oid, ref: 'Room', required: true },
+  service_code: String, unit: String, room_number: String, created_by_name: String,
   service_name: { type: String, required: true }, quantity: positiveInt, unit_price: money, amount: money,
   used_at: { type: Date, required: true }, created_by: { type: oid, ref: 'User', required: true },
   voided: { type: Boolean, default: false }, void_reason: String,
@@ -70,6 +72,7 @@ const bookingSchema = new Schema({
   services_used: [serviceLine], payments: [paymentLine],
   deposit_amount: { ...money, default: 0 },
   confirmed_at: Date,
+  invoice_id: { type: oid, ref: 'Invoice' },
   refund_status: { type: String, enum: ['none', 'pending', 'refunded'], default: 'none' },
   commands: [{ request_id: { type: String, required: true }, payload_hash: { type: String, required: true }, action: String, at: Date, resulting_version: Number, amount: Number }],
   status: { type: String, enum: ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled'], default: 'pending' },
@@ -85,6 +88,7 @@ bookingSchema.index({ 'rooms_booked.room_id': 1, status: 1, check_in_plan: 1, ch
 bookingSchema.index({ customer_id: 1, created_at: -1 });
 
 const promotionSchema = new Schema({
+  version: { type: Number, default: 0 }, coordination_version: { type: Number, default: 0 },
   code: { type: String, required: true, uppercase: true, trim: true, unique: true },
   discount_type: { type: String, enum: ['percentage', 'fixed'], required: true },
   discount_value: money, max_discount_amount: money, min_booking_amount: money,
@@ -95,15 +99,19 @@ promotionSchema.pre('validate', function () {
   if (this.discount_type === 'percentage' && this.discount_value > 100) this.invalidate('discount_value', 'Phần trăm tối đa 100.');
 });
 const invoiceSchema = new Schema({
+  version: { type: Number, default: 0 },
   invoice_code: { type: String, required: true, unique: true }, booking_id: { type: oid, ref: 'Booking', required: true, unique: true },
+  booking_code: String, customer_phone: String, customer_id_card: String,
+  actual_check_in: Date, actual_check_out: Date, nights: Number, created_by_name: String,
   customer_id: { type: oid, ref: 'Customer', required: true }, customer_name: { type: String, required: true },
   rooms_snapshot: [roomLine], services_snapshot: [serviceLine],
   total_room_charge: money, total_service_charge: money, discount_amount: money, deposit_deducted: money,
   invoice_total: money, balance_collected: money, refund_amount: { ...money, default: 0 },
-  promotion_snapshot: { code: String, discount_type: String, discount_value: Number },
+  promotion_snapshot: { code: String, discount_type: String, discount_value: Number, min_booking_amount: Number, max_discount_amount: Number, start_date: Date, end_date: Date },
+  payments_snapshot: [paymentLine],
   payment_status: { type: String, enum: ['paid'], default: 'paid' }, paid_at: { type: Date, required: true },
   created_by: { type: oid, ref: 'User', required: true },
-  adjustments: [{ reason: String, amount: Number, approved_at: Date, approved_by: { type: oid, ref: 'User' }, request_id: String }],
+  adjustments: [{ reason: String, amount: Number, approved_at: Date, approved_by: { type: oid, ref: 'User' }, approved_by_name: String, request_id: String, payload_hash: String, resulting_version: Number, method: { type: String, enum: ['cash', 'transfer', 'card'] }, reference: String }],
 }, options);
 invoiceSchema.index({ payment_status: 1, paid_at: -1 });
 invoiceSchema.index({ customer_id: 1, paid_at: -1 });
