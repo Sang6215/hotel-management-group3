@@ -8,7 +8,7 @@ export function validId(id: unknown): string {
   return id;
 }
 export const adminOnly: RequestHandler = (_req, res, next) => {
-  if (res.locals.user.role !== 'admin') throw new HttpError(403, 'Chỉ quản trị viên được sửa danh mục.');
+  if (res.locals.user.role !== 'admin') throw new HttpError(403, 'Thao tác này chỉ dành cho quản trị viên.');
   next();
 };
 export function checkVersion(doc: { version: number }, version: number) {

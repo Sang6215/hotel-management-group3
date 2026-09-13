@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { Booking, Customer, Room, RoomType, Service } from './models.js';
+import { Booking, Customer, Room, RoomType, Service, recordRoomInventory } from './models.js';
 import { adminOnly, checkVersion, HttpError, validId } from './http.js';
 import { hotelDay, nightsBetween, validCalendarDate } from '../shared/dates.js';
 import type { CustomerView, RoomTypeView, RoomView, ServiceView } from '../shared/types.js';
@@ -81,8 +81,18 @@ export function operationsRouter() {
         const roomIds = await Room.find({ room_type_id: item._id }).distinct('_id').session(session);
         if (await Booking.exists({ 'rooms_booked.room_id': { $in: roomIds }, status: { $in: ['confirmed', 'checked_in'] } }).session(session)) throw new HttpError(409, 'Loại phòng còn lượt đã xác nhận hoặc đang lưu trú.');
       }
+      const inventoryChanged = item.status !== d.status || item.name !== d.name;
       item.set({ type_code: d.code, name: d.name, base_price_per_night: d.price, max_occupancy: d.capacity, amenities: d.amenities, description: d.description, status: d.status });
-      await item.save({ session }); return roomTypeView(item);
+      await item.save({ session });
+      if (inventoryChanged) {
+        const roomIds = await Room.find({ room_type_id: item._id }).distinct('_id').session(session);
+        await lockRooms(roomIds.map(String), session);
+        const at = new Date();
+        for (const room of await Room.find({ _id: { $in: roomIds } }).session(session)) {
+          recordRoomInventory(room, item, at); await room.save({ session });
+        }
+      }
+      return roomTypeView(item);
     }); res.json({ item: result });
   });
   router.get('/services', async (req, res) => {

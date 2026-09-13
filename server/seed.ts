@@ -22,7 +22,7 @@ export async function seedDemo() {
     const type = await RoomType.findOneAndUpdate({ type_code: data.type_code }, { $setOnInsert: data }, { upsert: true, new: true, runValidators: true });
     for (let n = 1; n <= 4; n++) {
       const room_number = `${index + 1}0${n}`;
-      await Room.updateOne({ room_number }, { $setOnInsert: { room_number, floor: index + 1, room_type_id: type._id, status: 'available', active: true } }, { upsert: true, runValidators: true });
+      await Room.updateOne({ room_number }, { $setOnInsert: { room_number, floor: index + 1, room_type_id: type._id, status: 'available', active: true, inventory_history: [{ at: new Date(), type_id: type._id, type_name: type.name, enabled: type.status === 'active' }] } }, { upsert: true, runValidators: true });
     }
   }
   if (await Service.countDocuments() === 0) for (const [i, name, unit, price] of [

@@ -3,6 +3,8 @@ import { BedDouble, Plus, RefreshCw, Search } from 'lucide-react';
 import { api } from './api';
 import { calendarLabel, ErrorBox, type Field, LoadState, Modal, money, Pager, RecordForm, useRemote } from './workspace-ui';
 import type { BookingView, CustomerView, Page, RoomTypeView, RoomView, ServiceView, UserView } from '../../shared/types';
+import type { CustomerSpending } from '../../shared/reports';
+import { ReportStats } from './reports';
 
 const statuses = [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Ngừng sử dụng' }];
 const roomLabels = { available: 'Sẵn sàng', occupied: 'Đang có khách', cleaning: 'Đang dọn', maintenance: 'Bảo trì' };
@@ -27,7 +29,8 @@ export function CustomerEditor({ close, saved }: { close: () => void; saved: (c:
 export function CustomerHistory({ customer, close }: { customer: CustomerView; close: () => void }) {
   const [page, setPage] = useState(1);
   const result = useRemote<Page<BookingView>>(`/customers/${customer.id}/bookings?page=${page}&limit=10`);
-  return <Modal title={`Lịch sử · ${customer.fullName}`} close={close} wide><p className="muted">Phiếu đặt và lượt lưu trú liên kết với hồ sơ khách hàng.</p><ErrorBox error={result.error} retry={result.reload} /><LoadState busy={result.busy} empty={result.data?.total === 0} /><div className="history-list">{result.data?.items.map(b => <a key={b.id} href={`#bookings/${b.id}`} onClick={close}><div><strong>{b.code}</strong><p>{calendarLabel(b.checkIn)} → {calendarLabel(b.checkOut)} · Phòng {b.rooms.map(r => r.number).join(', ')}</p></div><BookingBadge status={b.status} /></a>)}</div><Pager data={result.data} page={page} setPage={setPage} /></Modal>;
+  const spending = useRemote<CustomerSpending>(`/customers/${customer.id}/spending`);
+  return <Modal title={`Lịch sử · ${customer.fullName}`} close={close} wide><p className="muted">Phiếu đặt và lượt lưu trú liên kết với hồ sơ khách hàng. Chi tiêu là hóa đơn đã thanh toán cộng điều chỉnh đã duyệt; không cộng lại tiền cọc.</p><ErrorBox error={spending.error} retry={spending.reload} /><LoadState busy={spending.busy} />{spending.data && <ReportStats items={[{ label: 'Tổng chi tiêu đến hiện tại', value: money(spending.data.total) }, { label: 'Hóa đơn đã thanh toán', value: spending.data.invoiceCount }, { label: 'Hóa đơn gốc', value: money(spending.data.invoiceTotal) }, { label: 'Điều chỉnh', value: money(spending.data.adjustments) }]} />}<ErrorBox error={result.error} retry={result.reload} /><LoadState busy={result.busy} empty={result.data?.total === 0} /><div className="history-list">{result.data?.items.map(b => <a key={b.id} href={`#bookings/${b.id}`} onClick={close}><div><strong>{b.code}</strong><p>{calendarLabel(b.checkIn)} → {calendarLabel(b.checkOut)} · Phòng {b.rooms.map(r => r.number).join(', ')}</p></div><BookingBadge status={b.status} /></a>)}</div><Pager data={result.data} page={page} setPage={setPage} /></Modal>;
 }
 export function CatalogPage({ kind, user }: { kind: Kind; user: UserView }) {
   const [q, setQ] = useState(''), [status, setStatus] = useState('all'), [page, setPage] = useState(1);

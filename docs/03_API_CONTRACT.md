@@ -134,4 +134,22 @@ Ca kiểm thử thanh toán đã chạy: tiền phòng 2.400.000, dịch vụ 10
 
 Các thao tác giữ phòng/tiền tuần 3 và thanh toán tuần 4 dùng requestId, version và biên nhận như trên.
 
+## API bổ sung tuần 5 (đã hoạt động)
+
+Tiền tố /api/v1; tất cả GET, cần phiên đăng nhập. Query strict. Khoảng ngày `from/to` theo giờ Việt Nam, bao gồm ngày kết thúc, tối đa 366 ngày. Mặc định đầu tháng đến hôm nay; giao diện sổ cá nhân tự truyền hôm nay. Không tính sự kiện sau `asOf`.
+
+| Đường dẫn | Query thêm ngoài from/to | Quyền |
+|---|---|---|
+| /reports/revenue | groupBy=day/month | Admin |
+| /reports/cash-flow | employeeId, method=cash/transfer/card, kind=deposit/checkout/refund/adjustment, page, limit (1–100) | Admin |
+| /reports/my-receipts | method, kind, page, limit; không nhận employeeId | Cả hai, cưỡng chế danh tính phiên |
+| /reports/occupancy | typeId tùy chọn, áp theo loại tại đêm lịch sử | Admin |
+| /reports/top-services | mode=usage/invoice, limit (1–50) | Admin |
+| /reports/top-customers | limit (1–50) | Admin |
+| /customers/:id/spending | Không có query, tổng từ dữ liệu hệ thống đến hiện tại | Cả hai |
+
+Kiểu kết quả ở `shared/reports.ts`. Báo cáo trả from/to/asOf/timezone và dữ liệu thật; tổng không phụ thuộc phân trang. Dòng tiền nhóm tối đa 200 nhân viên kèm employeeCount để thông báo thiếu trang nhóm; chi tiết sổ tiền phân trang độc lập. Báo cáo công suất trả through, totals, items theo ngày, byType và warnings; tỷ lệ null khi mẫu số 0 hoặc có lưu trú xung đột ngày ngừng phục vụ.
+
+400 cho query sai, 401 chưa đăng nhập/phiên hết hiệu lực, 403 sai quyền, 404 khách không tồn tại, 409 tổng vượt giới hạn chính xác, 413 công suất vượt giới hạn 2.500 phòng/20.000 lượt. Truy vấn có thời gian tối đa 15 giây ở MongoDB. Định nghĩa doanh thu, dòng tiền, top, lịch sử phòng và hạn chế tại [Tuần 5](11_WEEK5.md).
+
 Tham khảo hành vi cookie và session: [Express session middleware](https://expressjs.com/en/resources/middleware/session/).

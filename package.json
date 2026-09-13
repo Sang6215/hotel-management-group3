@@ -1,6 +1,6 @@
 {
   "name": "hotel-management-group3",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.15.1",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:seed": "tsx scripts/seed.ts",
-    "db:check": "tsx scripts/check-db.ts"
+    "db:check": "tsx scripts/check-db.ts",
+    "bench:reports": "tsx scripts/benchmark-reports.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

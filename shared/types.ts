@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'staff';
 export type UserView = { id: string; username: string; fullName: string; role: Role; status: 'active' | 'locked'; createdAt: string };
 export type RoomView = { id: string; number: string; floor: number; typeId: string; typeName: string; capacity: number; price: number; status: 'available' | 'occupied' | 'cleaning' | 'maintenance'; active: boolean; version: number };
-export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 4; demo: boolean };
+export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 5; demo: boolean };
 export type Page<T> = { items: T[]; total: number; page: number; limit: number };
 export type CatalogStatus = 'active' | 'inactive';
 export type RoomTypeView = { id: string; code: string; name: string; price: number; capacity: number; amenities: string[]; description: string; status: CatalogStatus; version: number };

@@ -1,8 +1,8 @@
 # Hotel Desk của Nhóm 3
 
-Hiện đã triển khai tuần 4 (Phase 4): ghi dịch vụ theo phòng, khuyến mãi, xem trước chi phí, trả phòng/thu hoặc hoàn tiền, hóa đơn nội bộ có bản in và điều chỉnh có quyền quản trị. Giữ nguyên các chức năng tuần 1–3, sổ thu/hoàn, lịch sử thao tác và cơ chế chống gửi lặp.
+Hiện đã triển khai tuần 5 (Phase 5): báo cáo doanh thu ngày/tháng, dòng tiền theo nhân viên, công suất phòng theo lịch sử, top dịch vụ/khách hàng, sổ thu cá nhân và tổng chi tiêu từng khách. Giữ nguyên các chức năng tuần 1–4, hóa đơn snapshot và cơ chế chống gửi lặp. Không suy ngược công suất quá khứ khi chưa có lịch sử danh mục.
 
-Hướng dẫn thao tác và nghiệm thu: [Tuần 4](docs/10_WEEK4.md), [Tuần 3](docs/09_WEEK3.md), [Tuần 2](docs/07_WEEK2.md).
+Hướng dẫn thao tác và nghiệm thu: [Tuần 5](docs/11_WEEK5.md), [Tuần 4](docs/10_WEEK4.md), [Tuần 3](docs/09_WEEK3.md), [Tuần 2](docs/07_WEEK2.md).
 
 Kho mã và hướng dẫn chạy online: [triển khai GitHub + Render + MongoDB Atlas](docs/08_DEPLOY_GITHUB.md).
 
@@ -63,7 +63,7 @@ Nếu nhóm đã có replica set khác, sao chép `.env.example` thành `.env` v
 - Tạo/sửa phiếu nháp nhiều phòng, kiểm tra sức chứa từng phòng, tính giá máy chủ, chụp thông tin khách và giá dự kiến, lưu lịch sử chỉnh sửa.
 - Biểu mẫu sửa gửi version; dữ liệu cũ bị từ chối để tránh ghi đè thay đổi của người khác.
 
-Trang Phòng khách sạn thể hiện trạng thái hiện tại; phần Tạo đặt phòng tra lịch theo ngày. Phiếu pending không giữ lịch. Chi tiết phiếu có xác nhận/cọc, nhận phòng, hủy/hoàn, đổi lịch, gia hạn, dịch vụ và trả phòng. Trả phòng đồng thời lập hóa đơn, ghi tiền và chuyển mọi phòng sang đang dọn. Quản trị xác nhận dọn xong trước khi giao phòng tiếp. Báo cáo thống kê thuộc tuần 5, chưa triển khai.
+Trang Phòng khách sạn thể hiện trạng thái hiện tại; phần Tạo đặt phòng tra lịch theo ngày. Phiếu pending không giữ lịch. Chi tiết phiếu có xác nhận/cọc, nhận phòng, hủy/hoàn, đổi lịch, gia hạn, dịch vụ và trả phòng. Trả phòng đồng thời lập hóa đơn, ghi tiền và chuyển mọi phòng sang đang dọn. Quản trị xác nhận dọn xong trước khi giao phòng tiếp. Báo cáo tuần 5 đã hoạt động cho quản trị; cả hai vai trò có sổ thu cá nhân.
 
 ## Cấu trúc dự án
 
@@ -89,7 +89,7 @@ pnpm db:check
 
 Test tự khởi động replica set tạm riêng và tự dọn dữ liệu do test tạo; không dùng URI database phát triển. `db:check` cần MongoDB đã chạy, xác nhận replica set, commit và rollback bằng bản ghi chẩn đoán riêng; bản ghi được dọn ngay sau kiểm tra. Collection kỹ thuật rỗng `_phase1_probe` có thể còn lại.
 
-Kết quả nền tảng ở [biên bản Phase 1](docs/05_VERIFICATION.md); bộ kiểm tra hiện có 78 bài. Phạm vi và kết quả mới nhất ở [nghiệm thu tuần 4](docs/10_WEEK4.md).
+Kết quả nền tảng ở [biên bản Phase 1](docs/05_VERIFICATION.md); bộ kiểm tra hiện có 106 bài. Phạm vi và kết quả mới nhất ở [nghiệm thu tuần 5](docs/11_WEEK5.md). `pnpm bench:reports` đo index bằng database tạm riêng; xem [số đo và giới hạn](docs/12_INDEX_BENCHMARK.md).
 
 ## Bản build và triển khai sau này
 

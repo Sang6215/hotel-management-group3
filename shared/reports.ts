@@ -1,0 +1,11 @@
+export type ReportPeriod = { from: string; to: string; asOf: string; timezone: string };
+export type CustomerSpending = { customerId: string; asOf: string; invoiceCount: number; invoiceTotal: number; adjustments: number; total: number };
+export type RevenueTotals = { invoiceCount: number; roomTotal: number; serviceTotal: number; discount: number; invoiceTotal: number; adjustments: number; revenue: number; cashIn: number; cashOut: number; netCash: number };
+export type RevenueReport = ReportPeriod & { groupBy: 'day' | 'month'; items: (RevenueTotals & { period: string })[]; totals: RevenueTotals };
+export type CashTotals = { count: number; cashIn: number; cashOut: number; netCash: number };
+export type ReceiptRow = { id: string; bookingId: string; bookingCode: string; at: string; byId: string; by: string; kind: string; direction: 'in' | 'out'; amount: number; method: string; reference: string; reason: string };
+export type ReceiptsReport = ReportPeriod & { items: ReceiptRow[]; total: number; page: number; limit: number; totals: CashTotals; byEmployee: (CashTotals & { id: string; name: string })[]; employeeCount: number; byMethod: (CashTotals & { method: string })[] };
+export type TopServicesReport = ReportPeriod & { mode: 'usage' | 'invoice'; items: { id: string; serviceId: string; name: string; unit: string; quantity: number; lines: number; amount: number }[]; total: number; limit: number };
+export type TopCustomersReport = ReportPeriod & { items: { id: string; name: string; invoiceCount: number; invoiceTotal: number; adjustments: number; revenue: number }[]; total: number; limit: number };
+export type OccupancyCounts = { usedRoomNights: number; availableRoomNights: number; unavailableRoomNights: number; unknownRoomNights: number; unknownUsedRoomNights: number; conflictingRoomNights: number; occupancy: number | null };
+export type OccupancyReport = ReportPeriod & { through: string | null; totals: OccupancyCounts; items: (OccupancyCounts & { day: string })[]; byType: (OccupancyCounts & { id: string; name: string })[]; warnings: string[] };

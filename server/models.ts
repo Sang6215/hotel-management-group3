@@ -29,8 +29,15 @@ const roomSchema = new Schema({
   active: { type: Boolean, default: true }, current_booking_id: { type: oid, ref: 'Booking' },
   schedule_version: { type: Number, default: 0 },
   unavailable_periods: [{ start: { type: Date, required: true }, end: Date, reason: String }],
+  inventory_history: [{ at: { type: Date, required: true }, type_id: { type: oid, required: true }, type_name: { type: String, required: true }, enabled: { type: Boolean, required: true } }],
 }, options);
 roomSchema.index({ active: 1, room_type_id: 1, status: 1 });
+roomSchema.pre('save', async function () {
+  if (!this.inventory_history.length || this.isModified('active') || this.isModified('status') || this.isModified('room_type_id')) {
+    const type = await RoomType.findById(this.room_type_id).session(this.$session() || null);
+    recordRoomInventory(this, type, new Date());
+  }
+});
 
 const customerSchema = new Schema({
   coordination_version: { type: Number, default: 0 },
@@ -86,6 +93,10 @@ bookingSchema.pre('validate', function () {
 });
 bookingSchema.index({ 'rooms_booked.room_id': 1, status: 1, check_in_plan: 1, check_out_plan: 1 });
 bookingSchema.index({ customer_id: 1, created_at: -1 });
+bookingSchema.index({ 'payments.recorded_at': 1 });
+bookingSchema.index({ 'payments.recorded_by': 1, 'payments.recorded_at': 1 });
+bookingSchema.index({ status: 1, actual_check_in: 1 });
+bookingSchema.index({ status: 1, 'services_used.used_at': 1 });
 
 const promotionSchema = new Schema({
   version: { type: Number, default: 0 }, coordination_version: { type: Number, default: 0 },
@@ -115,6 +126,7 @@ const invoiceSchema = new Schema({
 }, options);
 invoiceSchema.index({ payment_status: 1, paid_at: -1 });
 invoiceSchema.index({ customer_id: 1, paid_at: -1 });
+invoiceSchema.index({ payment_status: 1, 'adjustments.approved_at': 1 });
 
 export const User = mongoose.model('User', userSchema, 'users');
 export const RoomType = mongoose.model('RoomType', roomTypeSchema, 'room_types');
@@ -125,10 +137,35 @@ export const Booking = mongoose.model('Booking', bookingSchema, 'bookings');
 export const Promotion = mongoose.model('Promotion', promotionSchema, 'promotions');
 export const Invoice = mongoose.model('Invoice', invoiceSchema, 'invoices');
 
+export function recordRoomInventory(room: InstanceType<typeof Room>, type: InstanceType<typeof RoomType> | null, at: Date) {
+  const state = { at, type_id: room.room_type_id, type_name: type?.name || 'Loại phòng không còn tồn tại', enabled: room.active && room.status !== 'maintenance' && type?.status === 'active' };
+  const last = room.inventory_history.at(-1);
+  if (last && last.enabled === state.enabled && String(last.type_id) === String(state.type_id) && last.type_name === state.type_name) return;
+  if (room.inventory_history.length >= 10000) throw new Error('Room inventory history limit reached');
+  room.inventory_history.push(state);
+}
+
+// Establish a known baseline, never invent pre-upgrade history or change business data.
+async function initializeRoomHistory() {
+  const ids = await Room.find({ 'inventory_history.0': { $exists: false } }).distinct('_id');
+  for (const id of ids) await mongoose.connection.transaction(async session => {
+    const prior = await Room.findById(id).session(session);
+    if (!prior || prior.inventory_history.length) return;
+    await RoomType.updateOne({ _id: prior.room_type_id }, { $inc: { coordination_version: 1 } }, { session });
+    await Room.updateOne({ _id: id }, { $inc: { schedule_version: 1 } }, { session });
+    const room = await Room.findById(id).session(session);
+    if (room && !room.inventory_history.length) {
+      recordRoomInventory(room, await RoomType.findById(room.room_type_id).session(session), new Date());
+      await room.save({ session });
+    }
+  }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
+}
+
 export async function initializeModels() {
   // All collections exist before any transaction uses them. This only adds declared indexes.
   for (const model of [User, RoomType, Room, Customer, Service, Booking, Promotion, Invoice]) {
     await model.createCollection();
     await model.createIndexes();
   }
+  await initializeRoomHistory();
 }
