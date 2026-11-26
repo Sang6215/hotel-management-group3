@@ -1,7 +1,14 @@
 export type Role = 'admin' | 'staff';
 export type UserView = { id: string; username: string; fullName: string; role: Role; status: 'active' | 'locked'; createdAt: string };
 export type RoomView = { id: string; number: string; floor: number; typeId: string; typeName: string; capacity: number; price: number; status: 'available' | 'occupied' | 'cleaning' | 'maintenance'; active: boolean; version: number };
-export type Overview = { rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 5; demo: boolean };
+export type Overview = {
+  rooms: number; available: number; customers: number; bookings: number; roomTypes: number; phase: 5; demo: boolean;
+  occupied?: number; cleaning?: number; maintenance?: number;
+  todayArrivals?: number; todayDepartures?: number; pendingRefunds?: number; activeBookings?: number;
+};
+export type DataCollectionName = 'room_types' | 'rooms' | 'customers' | 'services' | 'promotions' | 'bookings' | 'invoices' | 'users';
+export type DataSummary = { asOf: string; counts: Record<DataCollectionName, number> };
+export type DataImportResult = { collection: string; total: number; inserted: number; skipped: number; errors: { index: number; message: string }[] };
 export type Page<T> = { items: T[]; total: number; page: number; limit: number };
 export type CatalogStatus = 'active' | 'inactive';
 export type RoomTypeView = { id: string; code: string; name: string; price: number; capacity: number; amenities: string[]; description: string; status: CatalogStatus; version: number };

@@ -160,6 +160,23 @@ export function operationsRouter() {
       await item.save({ session }); return roomView(item, type);
     }); res.json({ item: result });
   });
+  router.post('/rooms/:id/mark-ready', adminOnly, async (req, res) => {
+    const d = z.object({ version }).strict().parse(req.body), roomId = validId(req.params.id);
+    const result = await transaction(async session => {
+      await lockRooms([roomId], session);
+      const item = await Room.findById(roomId).session(session);
+      if (!item) throw new HttpError(404, 'Không tìm thấy phòng.');
+      checkVersion(item, d.version);
+      if (item.status !== 'cleaning' || item.current_booking_id) {
+        throw new HttpError(409, 'Chỉ xác nhận dọn xong cho phòng đang ở trạng thái Đang dọn.');
+      }
+      const type = await RoomType.findById(item.room_type_id).session(session);
+      item.status = 'available';
+      await item.save({ session });
+      return roomView(item, type || undefined);
+    });
+    res.json({ item: result });
+  });
   router.get('/customers', async (req, res) => {
     const d = catalogQuery.parse(req.query);
     const filter = { ...activeFilter(d.status), ...(d.q ? { $or: [{ full_name: regex(d.q) }, { phone: regex(normalizePhone(d.q)) }, { id_card: regex(d.q.replace(/[\s.-]/g, '')) }] } : {}) };

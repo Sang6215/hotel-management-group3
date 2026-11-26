@@ -18,3 +18,24 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (path === '/auth/logout') csrf = '';
   return data as T;
 }
+
+export async function downloadApiFile(path: string, fallbackName: string): Promise<void> {
+  const response = await fetch(`/api/v1${path}`, { credentials: 'same-origin' });
+  if (response.status === 401) { csrf = ''; window.dispatchEvent(new Event('session-ended')); }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({ message: 'Không thể tải tệp từ máy chủ.' }));
+    throw new ApiError(data.message || 'Không thể tải tệp.', response.status);
+  }
+  const blob = await response.blob();
+  const header = response.headers.get('content-disposition') || '';
+  const match = /filename="([^"]+)"/i.exec(header);
+  const filename = match?.[1] || fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

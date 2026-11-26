@@ -14,6 +14,8 @@ import { operationsRouter } from './operations.js';
 import { reservationsRouter } from './reservations.js';
 import { billingRouter } from './billing.js';
 import { reportsRouter } from './reports.js';
+import { dataToolsRouter } from './data-tools.js';
+import { hotelDay } from '../shared/dates.js';
 
 declare module 'express-session' {
   interface SessionData { userId?: string; userVersion?: number; csrf?: string }
@@ -39,7 +41,9 @@ export function createApp(options: AppOptions) {
   if (options.trustProxy) app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: options.production ? undefined : false, strictTransportSecurity: options.production ? undefined : false }));
-  app.use(express.json({ limit: '32kb' }));
+  const smallJson = express.json({ limit: '32kb' });
+  const largeJson = express.json({ limit: '5mb' });
+  app.use((req, res, next) => (req.path === '/api/v1/data/restore' || req.path === '/api/v1/data/import' ? largeJson : smallJson)(req, res, next));
   const sessionStore = MongoStore.create({ mongoUrl: options.mongoUri, collectionName: 'sessions', ttl: 8 * 3600, mongoOptions: { maxPoolSize: 5, serverSelectionTimeoutMS: 15000 } });
   sessionStore.on('error', () => console.error('Session database is unavailable.'));
   const cookie = { httpOnly: true, secure: !!options.production, sameSite: 'strict' as const, path: '/', maxAge: 8 * 3600 * 1000 };
@@ -120,16 +124,26 @@ export function createApp(options: AppOptions) {
     res.json({ message: 'Đã đổi mật khẩu. Các phiên đăng nhập khác đã kết thúc.', csrfToken: req.session.csrf });
   });
   app.get('/api/v1/overview', async (_req, res) => {
-    const [rooms, available, customers, bookings, roomTypes] = await Promise.all([
+    const today = hotelDay(new Date());
+    const dayStart = new Date(today + 'T00:00:00+07:00');
+    const dayEnd = new Date(dayStart.getTime() + 86400000);
+    const [rooms, available, occupied, cleaning, maintenance, customers, bookings, roomTypes, pendingRefunds, activeBookings, todayArrivals, todayDepartures] = await Promise.all([
       Room.countDocuments({ active: true }), Room.countDocuments({ active: true, status: 'available' }),
+      Room.countDocuments({ active: true, status: 'occupied' }), Room.countDocuments({ active: true, status: 'cleaning' }),
+      Room.countDocuments({ active: true, status: 'maintenance' }),
       Customer.countDocuments(), Booking.countDocuments(), RoomType.countDocuments({ status: 'active' }),
+      Booking.countDocuments({ status: 'cancelled', refund_status: 'pending' }),
+      Booking.countDocuments({ status: { $in: ['confirmed', 'checked_in'] } }),
+      Booking.countDocuments({ status: 'confirmed', check_in_plan: { $gte: dayStart, $lt: dayEnd } }),
+      Booking.countDocuments({ status: 'checked_in', check_out_plan: { $gte: dayStart, $lt: dayEnd } }),
     ]);
-    res.json({ rooms, available, customers, bookings, roomTypes, phase: 5, demo: !!options.demo });
+    res.json({ rooms, available, occupied, cleaning, maintenance, customers, bookings, roomTypes, pendingRefunds, activeBookings, todayArrivals, todayDepartures, phase: 5, demo: !!options.demo });
   });
   app.use('/api/v1', operationsRouter());
   app.use('/api/v1', reservationsRouter());
   app.use('/api/v1', billingRouter());
   app.use('/api/v1', reportsRouter());
+  app.use('/api/v1', dataToolsRouter());
   app.use('/api/v1/users', (_req, res, next) => {
     if (res.locals.user.role !== 'admin') throw new HttpError(403, 'Chỉ quản trị viên được quản lý tài khoản.');
     next();
